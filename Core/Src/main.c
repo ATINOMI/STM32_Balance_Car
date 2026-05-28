@@ -59,7 +59,7 @@ int16_t ax, ay, az, gx, gy, gz;
 uint8_t timer_error_flag;
 uint16_t timer_count;
 int8_t PWML, PWMR;
-int16_t SpeedL, SpeedR;
+float SpeedL, SpeedR;
 
 /* USER CODE END PV */
 
@@ -154,8 +154,8 @@ int main(void)
 
     OLED_Printf(0, 0, OLED_8X16, "PWML:%+04d", PWML);
     OLED_Printf(0, 16, OLED_8X16, "PWMR:%+04d", PWMR);
-    OLED_Printf(0, 32, OLED_8X16, "E1:%6d", SpeedL);
-    OLED_Printf(0, 48, OLED_8X16, "E2:%6d", SpeedR);
+    OLED_Printf(0, 32, OLED_8X16, "SpdL:%+06.2f", SpeedL);
+    OLED_Printf(0, 48, OLED_8X16, "SpdR:%+06.2f", SpeedR);
     OLED_Update();
 
 
@@ -536,8 +536,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (speed_count >= 50)
     {
       speed_count = 0;
-      SpeedL = encoder_get(1) * 100 / 2037;  // 100倍速度
-      SpeedR = encoder_get(2) * 100 / 2037;
+      SpeedL = encoder_get(1) / 44.0f / 0.05f / 9.27666f;
+      SpeedR = encoder_get(2) / 44.0f / 0.05f / 9.27666f;
     }
   }
 }
