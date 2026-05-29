@@ -70,6 +70,7 @@ uint8_t timer_error_flag;
 uint16_t timer_count;
 int8_t PWML, PWMR;
 float SpeedL, SpeedR;
+uint16_t Count;
 
 
 /* USER CODE END PV */
@@ -154,13 +155,75 @@ int main(void)
   blue_serial_printf("world");
   while (1) {
     /* USER CODE END WHILE */
-    if (BlueSerial_RxFlag == 1)
-    {
-      			OLED_Printf(0, 16, OLED_8X16, "%s", BlueSerial_RxPacket);
-      			OLED_Update();
 
-      			BlueSerial_RxFlag = 0;
-    }
+    /* --- 蓝牙示例程序 ---
+
+     if (BlueSerial_RxFlag == 1)
+     {
+       			OLED_Printf(0, 16, OLED_8X16, "%s", BlueSerial_RxPacket);
+       			OLED_Update();
+
+       			BlueSerial_RxFlag = 0;
+     }*/
+
+    /*  --- MPU6050示例程序 ---
+     OLED_Printf(0, 0, OLED_8X16, "%+06d", ax);
+     OLED_Printf(0, 16, OLED_8X16, "%+06d", ay);
+     OLED_Printf(0, 32, OLED_8X16, "%+06d", az);
+     OLED_Printf(64, 0, OLED_8X16, "%+06d", gx);
+     OLED_Printf(64, 16, OLED_8X16, "%+06d",gy);
+     OLED_Printf(64, 32, OLED_8X16, "%+06d", gz);
+     OLED_Printf(0, 48, OLED_8X16, "Flag:%1d", timer_error_flag);
+     OLED_Printf(64, 48, OLED_8X16, "C:%05d", timer_count);
+     OLED_Update(); */
+
+    /* --- 按键测试程序 ---
+     KeyNum = key_get_num();
+     if (KeyNum == 1)
+     {
+       Num ++;
+     }
+     if (KeyNum == 2)
+     {
+       Num --;
+     }
+     if (KeyNum == 3)
+     {
+       Num += 10;
+     }
+     if (KeyNum == 4)
+     {
+       Num -= 10;
+     }
+
+     OLED_Printf(0, 0, OLED_8X16, "Count:%05d", Count);
+     OLED_Printf(0, 16, OLED_8X16, "Num:%03d", Num);
+     OLED_Update();*/
+
+    /* ---直流电机与编码器测试---
+    KeyNum = key_get_num();
+    if (KeyNum == 1) PWML += 10;
+    if (KeyNum == 2) PWML -= 10;
+    if (KeyNum == 3) PWMR += 10;
+    if (KeyNum == 4) PWMR -= 10;
+
+    motor_set_pwm(1, PWML);
+    motor_set_pwm(2, PWMR);
+
+    int sl_int = (int)SpeedL;
+    int sl_frac = (int)((SpeedL - sl_int) * 100);
+    if (sl_frac < 0) sl_frac = -sl_frac;
+
+    int sr_int = (int)SpeedR;
+    int sr_frac = (int)((SpeedR - sr_int) * 100);
+    if (sr_frac < 0) sr_frac = -sr_frac;
+
+    OLED_Printf(0, 0, OLED_8X16, "PWML:%+04d", PWML);
+    OLED_Printf(0, 16, OLED_8X16, "PWMR:%+04d", PWMR);
+    OLED_Printf(0, 32, OLED_8X16, "SpdL:%+d.%02d", sl_int, sl_frac);
+    OLED_Printf(0, 48, OLED_8X16, "SpdR:%+d.%02d", sr_int, sr_frac);
+    OLED_Update();*/
+    
     /* USER CODE BEGIN 3 */
   }
 
@@ -599,8 +662,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   if (htim->Instance == TIM1)
   {
     key_tick();
+    MPU6050_getdata(&ax, &ay, &az, &gx, &gy, &gz);
 
     speed_count++;
+    Count++;
+
     if (speed_count >= 50)
     {
       speed_count = 0;

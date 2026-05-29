@@ -54,6 +54,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         Core/Src/HardWare/Serial.c
         Core/Inc/HardWare/BlueSerial.h
         Core/Src/HardWare/BlueSerial.c
+        Core/Inc/Algorithm/ComplementaryFilter.h
+        Core/Src/Algorithm/ComplementaryFilter.c
 )
 
 # Add STM32CubeMX generated sources
