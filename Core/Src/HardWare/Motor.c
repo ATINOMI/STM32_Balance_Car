@@ -20,7 +20,7 @@ void motor_set_pwm(uint8_t n, int8_t pwm)
         {
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_SET);
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, pwm);
+            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, -pwm);  // 要加负号喵
         }
     }
     else if (n == 2)
@@ -35,7 +35,7 @@ void motor_set_pwm(uint8_t n, int8_t pwm)
         {
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_RESET);
-            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, pwm);
+            __HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_2, -pwm);
         }
     }
 

@@ -31,6 +31,9 @@
 #include "HardWare/Serial.h"
 #include "HardWare/BlueSerial.h"
 #include "Algorithm/ComplementaryFilter.h"
+#include "Algorithm/PID.h"
+#include "string.h"
+#include <stdlib.h>
 
 extern uint8_t serial_rx_data;
 extern uint8_t serial_rx_flag;
@@ -71,12 +74,30 @@ int16_t ax, ay, az, gx, gy, gz;
 uint8_t timer_error_flag;
 uint16_t timer_count;
 int8_t PWML, PWMR;
+
 float SpeedL, SpeedR;
+
 uint16_t Count;
+
 float angle_acc;
 float angle_gyro;
 float angle;
-float alpha = 0.999;
+float alpha = 0.99;
+
+uint8_t run_flag = 0;
+
+int16_t left_pwm, right_pwm;
+int16_t ave_pwm, diff_pwm;
+
+PID_t angle_pid ={
+  .kp_ = 0,
+  .ki_ = 0,
+  .kd_ = 0,
+
+  .output_max_ =  100,
+  .output_min_ = -100,
+};
+
 
 
 /* USER CODE END PV */
@@ -149,8 +170,9 @@ int main(void)
   HAL_UART_Receive_IT(&huart1, &serial_rx_data, 1);
   HAL_UART_Receive_IT(&huart2, &blue_rx_byte, 1);
 
-
   uint8_t KeyNum, Num;
+
+
 
 
   /* USER CODE END 2 */
@@ -159,43 +181,76 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   blue_serial_send_str("hello");
   blue_serial_printf("world");
-  while (1) {
-    /* USER CODE END WHILE */
+  led_off();
+while (1) {
+  /* USER CODE END WHILE */
 
-    /*  --- MPU6050示例程序 ---*/
-     OLED_Printf(0, 0, OLED_8X16, "%+06d", ax);
-     OLED_Printf(0, 16, OLED_8X16, "%+06d", ay);
-     OLED_Printf(0, 32, OLED_8X16, "%+06d", az);
-     OLED_Printf(64, 0, OLED_8X16, "%+06d", gx);
-     OLED_Printf(64, 16, OLED_8X16, "%+06d",gy);
-     OLED_Printf(64, 32, OLED_8X16, "%+06d", gz);
-     OLED_Printf(0, 48, OLED_8X16, "Flag:%1d", timer_error_flag);
-     OLED_Printf(64, 48, OLED_8X16, "C:%05d", timer_count);
-     OLED_Update();
+  KeyNum = key_get_num();
 
-    int acc_int = (int)angle_acc;
-    int acc_frac = (int)((angle_acc - acc_int) * 100);
-    if (acc_frac < 0) acc_frac = -acc_frac;
-
-    int gyro_int = (int)angle_gyro;
-    int gyro_frac = (int)((angle_gyro - gyro_int) * 100);
-    if (gyro_frac < 0) gyro_frac = -gyro_frac;
-
-    int angle_int = (int)angle;
-    int angle_frac = (int)((angle - angle_int) * 100);
-    if (angle_frac < 0) angle_frac = -angle_frac;
-
-    blue_serial_printf(
-      "[plot,%d.%02d,%d.%02d,%d.%02d]",
-           acc_int,
-           acc_frac,
-           gyro_int,
-           gyro_frac,
-           angle_int,
-           angle_frac);
-    /* USER CODE BEGIN 3 */
+  if (KeyNum == 1)
+  {
+    run_flag = !run_flag;
+    if (run_flag) led_on();
+    else led_off();
   }
 
+  int kp_int  = (int)angle_pid.kp_;
+  int kp_frac = (int)((angle_pid.kp_ - kp_int) * 100);
+  int ki_int  = (int)angle_pid.ki_;
+  int ki_frac = (int)((angle_pid.ki_ - ki_int) * 100);
+  int kd_int  = (int)angle_pid.kd_;
+  int kd_frac = (int)((angle_pid.kd_ - kd_int) * 100);
+  int t_int   = (int)angle_pid.target_angle_;
+  int t_frac  = (int)((angle_pid.target_angle_ - t_int) * 100);
+  if (t_frac < 0) t_frac = -t_frac;
+  int a_int   = (int)angle;
+  int a_frac  = (int)((angle - a_int) * 100);
+  if (a_frac < 0) a_frac = -a_frac;
+  int o_int   = (int)angle_pid.pid_output_;
+
+  OLED_Clear();
+  OLED_Printf(0, 0,  OLED_6X8, "  Angle");
+  OLED_Printf(0, 8,  OLED_6X8, "P:%d.%02d", kp_int, kp_frac);
+  OLED_Printf(0, 16, OLED_6X8, "I:%d.%02d", ki_int, ki_frac);
+  OLED_Printf(0, 24, OLED_6X8, "D:%d.%02d", kd_int, kd_frac);
+  OLED_Printf(0, 32, OLED_6X8, "T:%+d.%02d", t_int, t_frac);
+  OLED_Printf(0, 40, OLED_6X8, "A:%+d.%02d", a_int, a_frac);
+  OLED_Printf(0, 48, OLED_6X8, "O:%+d", o_int);
+  OLED_Printf(0, 56, OLED_6X8, "GY:%+d", gy);
+  OLED_Update();
+
+  if (BlueSerial_RxFlag == 1)
+  {
+    char *tag = strtok(BlueSerial_RxPacket, ",");
+    if (strcmp(tag, "key") == 0)
+    {
+      char *name = strtok(NULL, ",");
+      char *action = strtok(NULL, ",");
+    }
+    else if (strcmp(tag, "slider") == 0)
+    {
+      char *name = strtok(NULL, ",");
+      char *value = strtok(NULL, ",");
+      if (strcmp(name, "AngleKp") == 0) angle_pid.kp_ = atof(value);
+      else if (strcmp(name, "AngleKi") == 0) angle_pid.ki_ = atof(value);
+      else if (strcmp(name, "AngleKd") == 0) angle_pid.kd_ = atof(value);
+    }
+    else if (strcmp(tag, "joystick") == 0)
+    {
+      int8_t lh = atoi(strtok(NULL, ","));
+      int8_t lv = atoi(strtok(NULL, ","));
+      int8_t rh = atoi(strtok(NULL, ","));
+      int8_t rv = atoi(strtok(NULL, ","));
+      angle_pid.target_angle_ = lv / 10.0f;
+      diff_pwm = rh / 2;
+    }
+    BlueSerial_RxFlag = 0;
+  }
+
+  blue_serial_printf("[plot,%d.%02d,%d.%02d]", t_int, t_frac, a_int, a_frac);
+
+  /* USER CODE BEGIN 3 */
+}
   /* USER CODE END 3 */
 }
 
@@ -628,22 +683,65 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   static uint16_t speed_count = 0;
+  static uint16_t pid_count   = 0;
+
   if (htim->Instance == TIM1)
   {
     key_tick();
-    MPU6050_getdata(&ax, &ay, &az, &gx, &gy, &gz);
-    angle_acc  = -angle_acc_compute(ax, ay, az);
-    angle_gyro = angle_gyro_compute(angle_gyro, gy, 0.001, angle);
-    angle = complementary_filter(angle_acc, angle_gyro, alpha);
+
+    if (angle > 50 || angle < -50)
+    {
+      run_flag = 0;
+    }
 
     speed_count++;
     Count++;
+    pid_count++;
 
     if (speed_count >= 50)
     {
       speed_count = 0;
       SpeedL = encoder_get(1) / 44.0f / 0.05f / 9.27666f;
       SpeedR = encoder_get(2) / 44.0f / 0.05f / 9.27666f;
+    }
+
+    if (pid_count >= 10)
+    {
+      pid_count = 0;
+
+      MPU6050_getdata( &ax,
+                 &ay,
+                 &az,
+                &gx,
+                &gy,
+                &gz);
+
+      gy -= 16;
+
+      angle_acc  = -angle_acc_compute(ax, ay, az);
+      angle_gyro = angle_gyro_compute(angle_gyro, gy, 0.01, angle);
+      angle = complementary_filter(angle_acc, angle_gyro, alpha);
+
+      if (run_flag)
+      {
+        angle_pid.actual_angle_ = angle;
+        PID_Update(&angle_pid);
+        ave_pwm = -angle_pid.pid_output_;
+
+        left_pwm  = ave_pwm + diff_pwm / 2;
+        right_pwm = ave_pwm - diff_pwm / 2;
+
+        if (left_pwm   > 100)  left_pwm  = 100; else if (left_pwm  < -100) left_pwm  = -100;
+        if (right_pwm  > 100 ) right_pwm = 100; else if (right_pwm < -100) right_pwm = -100;
+
+        motor_set_pwm(1, left_pwm);
+        motor_set_pwm(2, right_pwm);
+      }
+      else
+      {
+        motor_set_pwm(1,0);
+        motor_set_pwm(2,0);
+      }
     }
   }
 }

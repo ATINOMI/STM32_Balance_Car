@@ -39,11 +39,11 @@ void MPU6050_readRegs(uint8_t reg_addr, uint8_t *data_array, uint8_t len)
 }
 void MPU6050_init(void)
 {
-    MPU6050_writeReg(MPU6050_PWR_MGMT_1, 0x01);
-    MPU6050_writeReg(MPU6050_PWR_MGMT_2, 0x00);
-    MPU6050_writeReg(MPU6050_SMPLRT_DIV, 0x09);
-    MPU6050_writeReg(MPU6050_CONFIG, 0x06);
-    MPU6050_writeReg(MPU6050_GYRO_CONFIG, 0x18);
+    MPU6050_writeReg(MPU6050_PWR_MGMT_1,   0x01);
+    MPU6050_writeReg(MPU6050_PWR_MGMT_2,   0x00);
+    MPU6050_writeReg(MPU6050_SMPLRT_DIV,   0x07);
+    MPU6050_writeReg(MPU6050_CONFIG,       0x00);
+    MPU6050_writeReg(MPU6050_GYRO_CONFIG,  0x18);
     MPU6050_writeReg(MPU6050_ACCEL_CONFIG, 0x18);
 }
 
