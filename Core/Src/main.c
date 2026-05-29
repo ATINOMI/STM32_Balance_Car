@@ -28,6 +28,13 @@
 #include "HardWare/MPU6050.h"
 #include "HardWare/Encoder.h"
 #include "HardWare/Motor.h"
+#include "HardWare/Serial.h"
+#include "HardWare/BlueSerial.h"
+extern uint8_t serial_rx_data;
+extern uint8_t serial_rx_flag;
+extern char BlueSerial_RxPacket[100];
+extern uint8_t BlueSerial_RxFlag;
+extern uint8_t blue_rx_byte;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,12 +61,16 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
+UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
+
 /* USER CODE BEGIN PV */
 int16_t ax, ay, az, gx, gy, gz;
 uint8_t timer_error_flag;
 uint16_t timer_count;
 int8_t PWML, PWMR;
 float SpeedL, SpeedR;
+
 
 /* USER CODE END PV */
 
@@ -72,6 +83,8 @@ static void MX_I2C2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_USART1_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -117,6 +130,8 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_TIM2_Init();
+  MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
@@ -124,6 +139,8 @@ int main(void)
   MPU6050_init();
   OLED_Init();
   HAL_TIM_Base_Start_IT(&htim1);
+  HAL_UART_Receive_IT(&huart1, &serial_rx_data, 1);
+  HAL_UART_Receive_IT(&huart2, &blue_rx_byte, 1);
 
 
   uint8_t KeyNum, Num;
@@ -133,32 +150,17 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  blue_serial_send_str("hello");
+  blue_serial_printf("world");
   while (1) {
     /* USER CODE END WHILE */
-    KeyNum = key_get_num();
-    if (KeyNum == 1) {
-      PWML += 10;
-    }
-    if (KeyNum == 2) {
-      PWML -= 10;
-    }
-    if (KeyNum == 3) {
-      PWMR += 10;
-    }
-    if (KeyNum == 4) {
-      PWMR -= 10;
-    }
+    if (BlueSerial_RxFlag == 1)
+    {
+      			OLED_Printf(0, 16, OLED_8X16, "%s", BlueSerial_RxPacket);
+      			OLED_Update();
 
-    motor_set_pwm(1, PWML);
-    motor_set_pwm(2, PWMR);
-
-    OLED_Printf(0, 0, OLED_8X16, "PWML:%+04d", PWML);
-    OLED_Printf(0, 16, OLED_8X16, "PWMR:%+04d", PWMR);
-    OLED_Printf(0, 32, OLED_8X16, "SpdL:%+06.2f", SpeedL);
-    OLED_Printf(0, 48, OLED_8X16, "SpdR:%+06.2f", SpeedR);
-    OLED_Update();
-
-
+      			BlueSerial_RxFlag = 0;
+    }
     /* USER CODE BEGIN 3 */
   }
 
@@ -446,6 +448,72 @@ static void MX_TIM4_Init(void)
 }
 
 /**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 9600;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 9600;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -542,6 +610,45 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   }
 }
 
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+
+  static uint8_t rx_state = 0;
+  static uint8_t p_rx_packet = 0;
+
+  if (huart->Instance == USART1)
+  {
+    serial_rx_flag = 1;
+    HAL_UART_Receive_IT(&huart1, &serial_rx_data, 1);
+  }
+
+  else if (huart->Instance == USART2)
+  {
+    if (rx_state == 0)
+    {
+      if (blue_rx_byte == '[' && BlueSerial_RxFlag == 0)
+      {
+        rx_state = 1;
+        p_rx_packet = 0;
+      }
+    }
+    else if (rx_state == 1)
+    {
+      if (blue_rx_byte == ']')
+      {
+        rx_state = 0;
+        BlueSerial_RxPacket[p_rx_packet] = '\0';
+        BlueSerial_RxFlag = 1;
+      }
+      else
+      {
+        BlueSerial_RxPacket[p_rx_packet] = blue_rx_byte;
+        p_rx_packet++;
+      }
+    }
+    HAL_UART_Receive_IT(&huart2, &blue_rx_byte, 1);
+  }
+}
 /* USER CODE END 4 */
 
 /**
