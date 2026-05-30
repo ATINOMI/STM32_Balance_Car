@@ -101,12 +101,12 @@ PID_t angle_pid ={
 };
 
 PID_t speed_pid ={
-  .kp_ = 2.3,
+  .kp_ = 2.5,
   .ki_ = 0.05,
   .kd_ = 0,
 
-  .output_max_ =  20,
-  .output_min_ = -20,
+  .output_max_ =  10,
+  .output_min_ = -10,
 };
 
 
