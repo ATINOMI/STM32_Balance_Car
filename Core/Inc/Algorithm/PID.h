@@ -7,9 +7,9 @@
 
 typedef struct
 {
-    float target_angle_;
-    float actual_angle_;
-    float actual_angle_pre_;
+    float target_;
+    float actual_;
+    float actual_pre_;
     float pid_output_;
 
     float kp_;

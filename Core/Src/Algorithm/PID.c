@@ -6,9 +6,9 @@
 
 void PID_init(PID_t * pid)
 {
-    pid->target_angle_     = 0;
-    pid->actual_angle_     = 0;
-    pid->actual_angle_pre_ = 0;
+    pid->target_    = 0;
+    pid->actual_     = 0;
+    pid->actual_pre_ = 0;
     pid->pid_output_       = 0;
     pid->error_            = 0;
     pid->error_pre_        = 0;
@@ -21,7 +21,7 @@ void PID_Update(PID_t * pid)
 {
     /*误差传递*/
     pid->error_pre_ = pid->error_;
-    pid->error_ = pid->target_angle_ - pid->actual_angle_;
+    pid->error_ = pid->target_ - pid->actual_;
 
     /*P项*/
     pid->p_output_ = pid->kp_ * pid->error_;
@@ -40,7 +40,7 @@ void PID_Update(PID_t * pid)
     if (pid->i_output_ < pid->output_min_) pid->i_output_ = pid->output_min_;
 
     /*D项 + 微分先行*/
-    pid->d_output_ = -pid->kd_ * (pid->actual_angle_ - pid->actual_angle_pre_);
+    pid->d_output_ = -pid->kd_ * (pid->actual_- pid->actual_pre_);
 
     /*输出值*/
     pid->pid_output_ = pid->p_output_ + pid->i_output_ + pid->d_output_;
@@ -54,5 +54,5 @@ void PID_Update(PID_t * pid)
     if (pid->pid_output_ < pid->output_min_) pid->pid_output_ = pid->output_min_;
 
     /*实际值传递*/
-    pid->actual_angle_pre_ = pid->actual_angle_;
+    pid->actual_pre_ = pid->actual_;
 }
