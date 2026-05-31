@@ -93,7 +93,7 @@ float ave_speed, diff_speed;
 
 PID_t angle_pid ={
   .kp_ = 3,
-  .ki_ = 0.1,
+  .ki_ = 0.18,
   .kd_ = 3,
 
   .output_max_ =  100,
@@ -109,6 +109,14 @@ PID_t speed_pid ={
   .output_min_ = -10,
 };
 
+PID_t turn_pid ={
+  .kp_ = 4,
+  .ki_ = 3,
+  .kd_ = 0,
+
+  .output_max_ =  50,
+  .output_min_ = -50,
+};
 
 /* USER CODE END PV */
 
@@ -204,6 +212,7 @@ int main(void)
       {
         PID_init(&angle_pid);
         PID_init(&speed_pid);
+        PID_init(&turn_pid);
         run_flag = 1;
         led_on();
       }
@@ -249,7 +258,7 @@ int main(void)
         int8_t rh = atoi(strtok(NULL, ","));
         int8_t rv = atoi(strtok(NULL, ","));
         speed_pid.target_ = lv / 25.0f;
-        diff_pwm = rh / 2;
+        turn_pid.target_  = rh / 25.0f;
       }
       BlueSerial_RxFlag = 0;
     }
@@ -760,14 +769,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         speed_pid.actual_ = ave_speed;
         PID_Update(&speed_pid);
         angle_pid.target_ = speed_pid.pid_output_;
+
+        turn_pid.actual_ = diff_speed;
+        PID_Update(&turn_pid);
+        diff_pwm = turn_pid.pid_output_;
       }
       else
       {
         motor_set_pwm(1, 0);
         motor_set_pwm(2, 0);
-        angle_pid.target_ = 0;
+        angle_pid.target_   = 0;
         angle_pid.i_output_ = 0;
         speed_pid.i_output_ = 0;
+        turn_pid.i_output_  = 0;
       }
     }
   }
