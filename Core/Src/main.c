@@ -92,12 +92,14 @@ int16_t ave_pwm, diff_pwm;
 float ave_speed, diff_speed;
 
 PID_t angle_pid ={
-  .kp_ = 3,
+  .kp_ = 5,
   .ki_ = 0.18,
-  .kd_ = 3,
+  .kd_ = 5,
 
   .output_max_ =  100,
   .output_min_ = -100,
+
+  .out_offset_ = 3
 };
 
 PID_t speed_pid ={
