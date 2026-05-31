@@ -125,9 +125,9 @@ PID_t turn_pid ={
 };
 
 PID_t position_pid = {
-  .kp_ = 5,
-  .ki_ = 0.5,
-  .kd_ = 10,
+  .kp_ = 0,
+  .ki_ = 0,
+  .kd_ = 0,
   .output_max_ =  10,
   .output_min_ = -10,
 };
@@ -291,6 +291,14 @@ int main(void)
           speed_pid.target_ = lv / 25.0f;
           turn_pid.target_  = rh / 25.0f;
         }
+      }
+      else if (strcmp(tag, "slider") == 0)
+      {
+        char *name  = strtok(NULL, ",");
+        char *value = strtok(NULL, ",");
+        if      (strcmp(name, "PosKp") == 0) position_pid.kp_ = atof(value);
+        else if (strcmp(name, "PosKi") == 0) position_pid.ki_ = atof(value);
+        else if (strcmp(name, "PosKd") == 0) position_pid.kd_ = atof(value);
       }
       BlueSerial_RxFlag = 0;
     }
