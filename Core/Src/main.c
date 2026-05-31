@@ -91,6 +91,10 @@ float left_speed, right_speed;
 int16_t ave_pwm, diff_pwm;
 float ave_speed, diff_speed;
 
+float position = 0;  // 单位：轮子转数或cm
+float hold_position = 0;
+uint8_t position_hold = 0;
+
 PID_t angle_pid ={
   .kp_ = 5,
   .ki_ = 0.18,
@@ -118,6 +122,14 @@ PID_t turn_pid ={
 
   .output_max_ =  50,
   .output_min_ = -50,
+};
+
+PID_t position_pid = {
+  .kp_ = 5,
+  .ki_ = 0.5,
+  .kd_ = 10,
+  .output_max_ =  10,
+  .output_min_ = -10,
 };
 
 /* USER CODE END PV */
@@ -215,6 +227,7 @@ int main(void)
         PID_init(&angle_pid);
         PID_init(&speed_pid);
         PID_init(&turn_pid);
+        PID_init(&position_pid);
         run_flag = 1;
         led_on();
       }
@@ -225,29 +238,32 @@ int main(void)
       }
     }
 
-    int kp_int  = (int)angle_pid.kp_;
-    int kp_frac = (int)((angle_pid.kp_ - kp_int) * 100);
-    int ki_int  = (int)angle_pid.ki_;
-    int ki_frac = (int)((angle_pid.ki_ - ki_int) * 100);
-    int kd_int  = (int)angle_pid.kd_;
-    int kd_frac = (int)((angle_pid.kd_ - kd_int) * 100);
-    int t_int   = (int)angle_pid.target_;
-    int t_frac  = (int)((angle_pid.target_ - t_int) * 100);
-    if (t_frac < 0) t_frac = -t_frac;
-    int a_int   = (int)angle;
-    int a_frac  = (int)((angle - a_int) * 100);
+    int pkp_int  = (int)position_pid.kp_;
+    int pkp_frac = (int)((position_pid.kp_ - pkp_int) * 100);
+    int pki_int  = (int)position_pid.ki_;
+    int pki_frac = (int)((position_pid.ki_ - pki_int) * 100);
+    int pkd_int  = (int)position_pid.kd_;
+    int pkd_frac = (int)((position_pid.kd_ - pkd_int) * 100);
+    int pos_int  = (int)position;
+    int pos_frac = (int)((position - pos_int) * 100);
+    if (pos_frac < 0) pos_frac = -pos_frac;
+    int hpos_int  = (int)hold_position;
+    int hpos_frac = (int)((hold_position - hpos_int) * 100);
+    if (hpos_frac < 0) hpos_frac = -hpos_frac;
+
+    int a_int  = (int)angle;
+    int a_frac = (int)((angle - a_int) * 100);
     if (a_frac < 0) a_frac = -a_frac;
-    int o_int   = (int)angle_pid.pid_output_;
 
     OLED_Clear();
-    OLED_Printf(0, 0,  OLED_6X8, "  Angle");
-    OLED_Printf(0, 8,  OLED_6X8, "P:%d.%02d", kp_int, kp_frac);
-    OLED_Printf(0, 16, OLED_6X8, "I:%d.%02d", ki_int, ki_frac);
-    OLED_Printf(0, 24, OLED_6X8, "D:%d.%02d", kd_int, kd_frac);
-    OLED_Printf(0, 32, OLED_6X8, "T:%+d.%02d", t_int, t_frac);
-    OLED_Printf(0, 40, OLED_6X8, "A:%+d.%02d", a_int, a_frac);
-    OLED_Printf(0, 48, OLED_6X8, "O:%+d", o_int);
-    OLED_Printf(0, 56, OLED_6X8, "GY:%+d", gy);
+    OLED_Printf(0, 0,  OLED_6X8, "  Pos PID");
+    OLED_Printf(0, 8,  OLED_6X8, "P:%d.%02d", pkp_int, pkp_frac);
+    OLED_Printf(0, 16, OLED_6X8, "I:%d.%02d", pki_int, pki_frac);
+    OLED_Printf(0, 24, OLED_6X8, "D:%d.%02d", pkd_int, pkd_frac);
+    OLED_Printf(0, 32, OLED_6X8, "Pos:%+d.%02d", pos_int, pos_frac);
+    OLED_Printf(0, 40, OLED_6X8, "Hld:%+d.%02d", hpos_int, hpos_frac);
+    OLED_Printf(0, 48, OLED_6X8, "Hold:%d", position_hold);
+    OLED_Printf(0, 56, OLED_6X8, "A:%+d.%02d", a_int, a_frac);
     OLED_Update();
 
     if (BlueSerial_RxFlag == 1)
@@ -259,13 +275,26 @@ int main(void)
         int8_t lv = atoi(strtok(NULL, ","));
         int8_t rh = atoi(strtok(NULL, ","));
         int8_t rv = atoi(strtok(NULL, ","));
-        speed_pid.target_ = lv / 25.0f;
-        turn_pid.target_  = rh / 25.0f;
+
+        if (lv == 0 && rh == 0)
+        {
+          if (position_hold == 0)
+          {
+            hold_position = position;
+            position_pid.target_ = position;
+            position_hold = 1;
+          }
+        }
+        else
+        {
+          position_hold = 0;
+          speed_pid.target_ = lv / 25.0f;
+          turn_pid.target_  = rh / 25.0f;
+        }
       }
       BlueSerial_RxFlag = 0;
     }
 
-    blue_serial_printf("[plot,%d.%02d,%d.%02d]", t_int, t_frac, a_int, a_frac);
 
     /* USER CODE BEGIN 3 */
   }
@@ -766,8 +795,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
       ave_speed  = (left_speed + right_speed) / 2.0;
       diff_speed = left_speed - right_speed;
 
+      position += ave_speed * 0.05f;
+
       if (run_flag)
       {
+        if (position_hold) {
+          position_pid.actual_ = position;
+          PID_Update(&position_pid);
+          speed_pid.target_    = position_pid.pid_output_;
+        }
         speed_pid.actual_ = ave_speed;
         PID_Update(&speed_pid);
         angle_pid.target_ = speed_pid.pid_output_;
@@ -784,6 +820,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         angle_pid.i_output_ = 0;
         speed_pid.i_output_ = 0;
         turn_pid.i_output_  = 0;
+        position_pid.i_output_ = 0;
+        position_hold          = 0;
       }
     }
   }
