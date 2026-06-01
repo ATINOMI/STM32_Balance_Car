@@ -95,10 +95,14 @@ float position = 0;  // 单位：轮子转数或cm
 float hold_position = 0;
 uint8_t position_hold = 0;
 
+typedef enum { MODE_CONTROL = 0, MODE_HOLD } CarMode_t;
+CarMode_t car_mode = MODE_HOLD;
+float smooth_target = 0.0f;
+
 PID_t angle_pid ={
-  .kp_ = 5,
-  .ki_ = 0.18,
-  .kd_ = 5,
+  .kp_ = 4,
+  .ki_ = 0.1,
+  .kd_ = 4,
 
   .output_max_ =  100,
   .output_min_ = -100,
@@ -125,11 +129,11 @@ PID_t turn_pid ={
 };
 
 PID_t position_pid = {
-  .kp_ = 0,
-  .ki_ = 0,
-  .kd_ = 0,
-  .output_max_ =  10,
-  .output_min_ = -10,
+  .kp_ = 13,
+  .ki_ = 0.4,
+  .kd_ = 80,
+  .output_max_ =  20,
+  .output_min_ = -20,
 };
 
 /* USER CODE END PV */
@@ -238,6 +242,22 @@ int main(void)
       }
     }
 
+    if (KeyNum == 2)
+    {
+      if (car_mode == MODE_CONTROL)
+      {
+        car_mode = MODE_HOLD;
+        hold_position = position;
+        position_pid.target_ = position;
+        position_pid.i_output_ = 0;
+      }
+      else
+      {
+        car_mode = MODE_CONTROL;
+        speed_pid.i_output_ = 0;
+      }
+    }
+
     int pkp_int  = (int)position_pid.kp_;
     int pkp_frac = (int)((position_pid.kp_ - pkp_int) * 100);
     int pki_int  = (int)position_pid.ki_;
@@ -262,7 +282,7 @@ int main(void)
     OLED_Printf(0, 24, OLED_6X8, "D:%d.%02d", pkd_int, pkd_frac);
     OLED_Printf(0, 32, OLED_6X8, "Pos:%+d.%02d", pos_int, pos_frac);
     OLED_Printf(0, 40, OLED_6X8, "Hld:%+d.%02d", hpos_int, hpos_frac);
-    OLED_Printf(0, 48, OLED_6X8, "Hold:%d", position_hold);
+    OLED_Printf(0, 48, OLED_6X8, car_mode == MODE_CONTROL ? "MODE:CTL " : "MODE:HOLD");
     OLED_Printf(0, 56, OLED_6X8, "A:%+d.%02d", a_int, a_frac);
     OLED_Update();
 
@@ -276,21 +296,13 @@ int main(void)
         int8_t rh = atoi(strtok(NULL, ","));
         int8_t rv = atoi(strtok(NULL, ","));
 
-        if (lv == 0 && rh == 0)
-        {
-          if (position_hold == 0)
-          {
-            hold_position = position;
-            position_pid.target_ = position;
-            position_hold = 1;
-          }
-        }
-        else
-        {
-          position_hold = 0;
-          speed_pid.target_ = lv / 25.0f;
-          turn_pid.target_  = rh / 25.0f;
-        }
+        float lv_f = lv / 25.0f;
+        float rh_f = rh / 25.0f;
+
+        turn_pid.target_  = rh / 25.0f;
+
+        // 低通滤波，松开摇杆时平滑过渡到0喵
+        speed_pid.target_ = speed_pid.target_ * 0.2f + lv_f * 0.8f;
       }
       else if (strcmp(tag, "slider") == 0)
       {
@@ -807,14 +819,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
       if (run_flag)
       {
-        if (position_hold) {
+        if (car_mode == MODE_CONTROL)
+        {
+          speed_pid.actual_ = ave_speed;
+          PID_Update(&speed_pid);
+          smooth_target = speed_pid.pid_output_;  // 直接赋值喵
+        }
+        else
+        {
           position_pid.actual_ = position;
           PID_Update(&position_pid);
-          speed_pid.target_    = position_pid.pid_output_;
+          smooth_target =  smooth_target * 0.5f + position_pid.pid_output_ * 0.5f;
         }
-        speed_pid.actual_ = ave_speed;
-        PID_Update(&speed_pid);
-        angle_pid.target_ = speed_pid.pid_output_;
+        angle_pid.target_ = smooth_target;
 
         turn_pid.actual_ = diff_speed;
         PID_Update(&turn_pid);
@@ -824,12 +841,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
       {
         motor_set_pwm(1, 0);
         motor_set_pwm(2, 0);
-        angle_pid.target_   = 0;
-        angle_pid.i_output_ = 0;
-        speed_pid.i_output_ = 0;
-        turn_pid.i_output_  = 0;
+        angle_pid.target_      = 0;
+        angle_pid.i_output_    = 0;
+        speed_pid.i_output_    = 0;
+        turn_pid.i_output_     = 0;
         position_pid.i_output_ = 0;
-        position_hold          = 0;
+        smooth_target          = 0;
+        car_mode               = MODE_CONTROL;
       }
     }
   }
